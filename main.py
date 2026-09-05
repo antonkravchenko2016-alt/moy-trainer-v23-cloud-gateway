@@ -329,6 +329,7 @@ def _http_json(url: str, *, method: str = "GET", body: dict[str, Any] | None = N
     data = None if body is None else json.dumps(body, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Accept", "application/json")
+    req.add_header("User-Agent", "MoyTrainerGateway/23")
     req.add_header(PROVIDER_API_KEY_HEADER, API_KEY)
     if data is not None:
         req.add_header("Content-Type", "application/json; charset=UTF-8")
