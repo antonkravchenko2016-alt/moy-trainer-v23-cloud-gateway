@@ -408,7 +408,7 @@ def status():
         _safe_log("status", rid, outcome="ready", model=MODEL, cached=cached)
         return jsonify(status="ready", model=MODEL, requestId=rid), 200
     if code in (401, 403):
-        _safe_log("status", rid, outcome="auth_error", providerCode=code, cached=cached)
+        _safe_log("status", rid, outcome="auth_error", providerCode=code, cached=cached, providerName=PROVIDER_NAME, providerBase=PROVIDER_BASE, providerHeader=PROVIDER_API_KEY_HEADER, apiKeyLen=len(API_KEY), apiKeyHash12=hashlib.sha256(API_KEY.encode("utf-8")).hexdigest()[:12])
         return jsonify(status="auth_error", error=payload.get("error", "provider_auth_error"), requestId=rid), 503
     if code == 429:
         _safe_log("status", rid, outcome="limit", providerCode=code, cached=cached)
