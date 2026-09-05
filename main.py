@@ -26,15 +26,17 @@ from flask import Flask, jsonify, request
 APP = Flask(__name__)
 APP.config["MAX_CONTENT_LENGTH"] = 96 * 1024
 
-MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.7-flash").strip() or "gemini-3.7-flash"
-API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+MODEL = os.environ.get("PROVIDER_MODEL", os.environ.get("GEMINI_MODEL", "gemini-3.7-flash")).strip() or "gemini-3.7-flash"
+API_KEY = os.environ.get("PROVIDER_API_KEY", os.environ.get("GEMINI_API_KEY", "")).strip()
+PROVIDER_NAME = os.environ.get("PROVIDER_NAME", "google-gemini").strip() or "google-gemini"
 # Optional origin guard. A trusted reverse proxy may inject this server-side header;
 # Android never receives or stores this secret. Leave unset only when there is no separate edge.
 EDGE_SHARED_SECRET = os.environ.get("GATEWAY_EDGE_SHARED_SECRET", "").strip()
 EDGE_HEADER = "X-Moy-Edge-Key"
 STATUS_READY_CACHE_SECONDS = max(1, min(60, int(os.environ.get("GATEWAY_STATUS_READY_CACHE_SECONDS", "10"))))
 STATUS_ERROR_CACHE_SECONDS = max(1, min(15, int(os.environ.get("GATEWAY_STATUS_ERROR_CACHE_SECONDS", "3"))))
-PROVIDER_BASE = "https://generativelanguage.googleapis.com/v1beta"
+PROVIDER_BASE = os.environ.get("PROVIDER_BASE", "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
+PROVIDER_API_KEY_HEADER = os.environ.get("PROVIDER_API_KEY_HEADER", "x-goog-api-key").strip() or "x-goog-api-key"
 MAX_CONTEXT_CHARS = 48 * 1024
 MAX_QUESTION_CHARS = 8 * 1024
 MAX_PROVIDER_RESPONSE = 2 * 1024 * 1024
@@ -279,7 +281,7 @@ def _build_plan_revision(
     revision_id = _stable_token("revision-", {
         "baseRevisionId": base_revision, "decisionId": decision_id, "effectiveFrom": effective_from,
     })
-    model_identity = {"provider": "google-gemini", "model": MODEL, "gatewaySchema": GATEWAY_SCHEMA}
+    model_identity = {"provider": PROVIDER_NAME, "model": MODEL, "gatewaySchema": GATEWAY_SCHEMA}
     return {
         "schema": PLAN_REVISION_SCHEMA,
         "kind": "trainer-auto",
@@ -327,7 +329,7 @@ def _http_json(url: str, *, method: str = "GET", body: dict[str, Any] | None = N
     data = None if body is None else json.dumps(body, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Accept", "application/json")
-    req.add_header("x-goog-api-key", API_KEY)
+    req.add_header(PROVIDER_API_KEY_HEADER, API_KEY)
     if data is not None:
         req.add_header("Content-Type", "application/json; charset=UTF-8")
     try:
@@ -505,7 +507,7 @@ def coach():
         _safe_log("coach", rid, outcome="grounding_required_missing")
         return jsonify(error="grounding_required_missing", requestId=rid), 502
     plan_revision, revision_error = _build_plan_revision(context, decision, sources)
-    model_identity = {"provider": "google-gemini", "model": MODEL, "gatewaySchema": GATEWAY_SCHEMA}
+    model_identity = {"provider": PROVIDER_NAME, "model": MODEL, "gatewaySchema": GATEWAY_SCHEMA}
     _safe_log(
         "coach", rid, outcome="ok", model=MODEL, sourceCount=len(sources),
         responseChars=len(text), planRevisionStatus="rejected" if revision_error else "ready" if plan_revision else "none",
